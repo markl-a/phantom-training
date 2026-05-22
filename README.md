@@ -1,90 +1,93 @@
 # phantom-training
 
-> **Agentic post-training orchestrator on phantom-mesh**
-> The first self-hosted, cross-device, agentic fine-tuning framework.
+> **Agentic post-training orchestrator on phantom-mesh** — 跨裝置、self-hosted、agent 自動挑 base model + hyperparams + 跑 fine-tune,招聘對齊 NVIDIA / Anthropic / Modal。
 
-**Status:** alpha (Tier 1 stub, M3 W11-12 in roadmap)
-**License:** Apache-2.0
-**Sibling project:** [phantom-mesh](https://github.com/markl-a/phantom-mesh)
+![status: alpha · Tier 1](https://img.shields.io/badge/status-alpha%20%C2%B7%20Tier%201-orange)
+![license: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)
+[![phantom-mesh ecosystem](https://img.shields.io/badge/ecosystem-phantom--mesh-purple)](https://github.com/markl-a/phantom-mesh)
 
-## 一句話定位
+## 一句話 niche
 
-「Phantom-mesh 上的 AI agent 自己會訓練 AI 模型 — 看你的使用 pattern,自動挑 base model、調 hyperparams、跑 fine-tune、評估迭代,結果回餵成 phantom 的新 skill。」
+The **first headless + agentic + cross-device** post-training orchestrator that
+sits on top of Unsloth/Axolotl and runs over a personal device mesh. Unsloth
+ships kernels, Axolotl ships YAML, AutoTrain ships SaaS — phantom-training is
+the missing piece: an **LLM agent** that pulls dataset from your own
+phantom-mesh FTS5 memory, picks hyperparams, dispatches to whichever mesh node
+has the right GPU, and publishes the resulting LoRA back as a phantom skill.
 
-## Pitch (for hiring managers at NVIDIA / Anthropic / Modal)
+Think `terraform apply` for fine-tuning, where the planner is an agent and the
+state lives in your phantom mesh.
 
-The post-training world in 2026 looks like this:
+## Status (2026-05-22)
 
-- **Unsloth** ships 12x-faster MoE kernels.
-- **Axolotl** owns YAML-driven multi-GPU configs.
-- **LaMDAgent** (paper) shows LLM agents can construct post-training pipelines.
-- **DSPy** tunes prompts and few-shots, not weights.
-- **HuggingFace AutoTrain** is SaaS-only.
+- ✅ **Tier 1 shipped**: `phantom-train` CLI (`--skill / --base / --dry-run /
+  --commit`), FTS5 dataset extractor against `~/.phantom-mesh/memory.db`,
+  Curator judge interface stub, example training recipe
+  (`examples/rust-coder.toml`), pytest smoke test. Dry-run prints a structured
+  plan — **no real training yet**.
+- 🟡 **Tier 2 next** (M2): Unsloth backend wired, real LoRA fine-tune on Mac
+  M-series, eval pipeline (HumanEval / MBPP).
+- 🟡 **Tier 3** (M3 W11-12, ~2026-08 target full MVP): agent-driven hyperparam
+  search (LaMDAgent-style loop), cross-device dispatch via phantom-mesh, skill
+  publish loop.
 
-**phantom-training** is the missing piece: a **headless, agentic, local-first orchestrator** that sits on top of Unsloth/Axolotl, uses an LLM agent to choose hyperparameters, pulls training data from the user's own `phantom-mesh` FTS5 memory (filtered by the Hermes Curator), runs fine-tunes on whichever node in the mesh has the right GPU, and publishes the resulting LoRA back into `phantom-mesh` as a new skill.
+## 30-second quickstart
 
-Think `terraform apply` for fine-tuning, where the planner is an agent and the state lives in your phantom mesh.
+```bash
+git clone https://github.com/markl-a/phantom-training
+cd phantom-training
+pip install -e .
+python -m phantom_training.cli --skill rust-coder --base qwen2.5-coder-7b --dry-run
+pytest -v
+```
 
-### Why this is interesting
+## Architecture (within phantom-mesh ecosystem)
 
-- **NVIDIA (training infra):** real cross-device dispatch over a heterogeneous mesh (Mac M-series + Windows + Linux + cloud GPU).
-- **Anthropic (post-training research):** an open implementation of LaMDAgent-style automated pipeline construction, with traceable Curator decisions.
-- **Modal / Together:** a user-friendly entry point that can transparently spill compute onto serverless GPU when local isn't enough.
-
-## How it fits phantom-mesh
+phantom-training is the **P3 進化網 measure-upgrade** layer of phantom-mesh:
+the Hermes 6-step loop (judge → extract → store → recall → apply → measure)
+gains a real `measure` arm that turns logged sessions into a new fine-tuned
+LoRA, not just a metric row.
 
 ```
 User: "make phantom's coder agent better at Rust"
    |
-phantom-training agent:
-   1. Pull Rust sessions from phantom FTS5 memory.db
+phantom-training agent (this repo):
+   1. Pull Rust sessions from phantom-mesh FTS5 memory.db
    2. Filter to success cases via Hermes Curator judge
    3. Build instruction-tuning dataset
-   4. Pick base model (Qwen2.5-Coder-7B, CodeLlama-7B, ...)
+   4. Pick base model (Qwen2.5-Coder-7B / CodeLlama-7B / ...)
    5. Pick LoRA rank / lr / batch via agent proposal
-   6. Run Unsloth fine-tune on M-series or a mesh GPU node
+   6. Dispatch to Mac M-series or a mesh GPU node (via phantom-mesh)
    7. Eval on holdout + HumanEval / MBPP
    8. If pass, publish as phantom skill "rust-coder-v2"
-   9. If fail, agent proposes new hyperparams and retries (LaMDAgent loop)
+   9. If fail, agent re-proposes (LaMDAgent loop)
 ```
 
-## Tier 1 scope (this commit)
+Pillars served: **P3** (進化網 / self-improving), **P4** (加密為先 — training
+data never leaves the mesh, weights encrypted at rest).
 
-- `phantom-train` CLI with `--skill / --base / --dry-run / --commit`
-- FTS5 dataset extractor against `~/.phantom-mesh/memory.db`
-- Curator judge stub (interface only)
-- Example training recipe in `examples/rust-coder.toml`
-- pytest smoke test
+## Target users (recruiter / co-builder angle)
 
-No real training yet — Tier 1 prints a structured plan. Real Unsloth wiring lands in M3.
+- **Recruiters**: hits JD keywords for **NVIDIA training infra**, **Anthropic
+  post-training research**, **Modal / Together** (serverless GPU spill),
+  **工研院 / 中研院** (academic LaMDAgent-style work). Demonstrates Rust+Python
+  systems, agent loops, distributed GPU dispatch, public benchmark eval.
+- **Co-builders**: anyone who wants `terraform apply` ergonomics for LoRA
+  fine-tuning over a personal-device mesh; fork-friendly Tier 1 surface
+  (~300 LOC entry points).
 
-## Spec
+## Roadmap (per master plan)
 
-Full design lives in [`02-phantom-training.md`](../../215jseeking/docs/projects/02-phantom-training.md) (local).
+Full design + competitor matrix + risk register lives at
+`docs/02-phantom-training.md` (sanitized copy of internal spec). 3-bullet
+version:
 
-## Layout
+1. **M2** — Unsloth backend, real LoRA on M-series, eval pipeline.
+2. **M3 W11-12** — agent hyperparam search, cross-device dispatch, skill
+   publish loop, 1 end-to-end demo (`phantom train --skill rust-coder`).
+3. **Post-M3** — DPO / preference learning, model registry, 9-Agent Landscape
+   benchmark auto-runs.
 
-```
-phantom_training/
-  cli.py         # argparse + dry-run planner
-  dataset.py     # FTS5 -> instruction-tuning rows
-  judge.py       # Curator filter (stub)
-examples/
-  rust-coder.toml
-tests/
-  test_cli.py
-docs/
-  2026-05-22-tier1-initial-dev.md
-```
+## License
 
-## Quick start
-
-```bash
-python -m phantom_training.cli --skill rust-coder --base qwen2.5-coder-7b --dry-run
-```
-
-## Roadmap
-
-- **Tier 1 (now):** CLI + dataset extractor stub
-- **Tier 2 (M2):** Unsloth backend, real LoRA fine-tune on Mac M-series
-- **Tier 3 (M3 W11-12):** agent-driven hyperparam search, cross-device dispatch via phantom-mesh, public benchmark eval (HumanEval / MBPP), skill publish loop
+Apache-2.0. © 2026 Mark Lai ([markl-a](https://github.com/markl-a)).
