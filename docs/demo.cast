@@ -1,0 +1,7 @@
+{"version":3,"term":{"cols":80,"rows":24},"timestamp":1779466450,"idle_time_limit":2.0,"command":"/tmp/demo-scripts/training.sh","title":"phantom-training Tier 1 demo (dry-run fine-tune plan)","env":{"SHELL":"/bin/zsh"}}
+[0.527, "o", "$ python -m phantom_training.cli --skill demo-rust-coder --base qwen2.5-coder-7b --db ./demo-memory.db --dry-run\r\n"]
+[1.090, "o", "phantom-training v0.1.0a0 — fine-tune plan\r\n  skill       : demo-rust-coder\r\n  base model  : qwen2.5-coder-7b\r\n  backend     : unsloth\r\n  lora        : rank=16 alpha=32 dropout=0.05\r\n  optimizer   : lr=0.0002 epochs=3 batch=4 grad_accum=4\r\n  dataset     : 0 candidate -> 0 after Curator (db=demo-memory.db)\r\n  eval        : holdout=0.1 benchmarks=HumanEval,MBPP\r\n  dispatch    : prefer=local-mac fallback=mesh-gpu\r\n"]
+[0.000, "o", "  mode        : DRY-RUN (no training)\r\n"]
+[1.012, "o", "\r\n"]
+[0.000, "o", "# phantom-training: structured fine-tune plan emitted (dry-run, no GPU touched)\r\n"]
+[2.006, "x", "0"]
