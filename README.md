@@ -1,5 +1,7 @@
 # phantom-training
 
+[![CI](https://github.com/markl-a/phantom-training/actions/workflows/ci.yml/badge.svg)](https://github.com/markl-a/phantom-training/actions/workflows/ci.yml)
+
 > **Agentic post-training orchestrator on phantom-mesh** — 跨裝置、self-hosted、agent 自動挑 base model + hyperparams + 跑 fine-tune,招聘對齊 NVIDIA / Anthropic / Modal。
 
 ![status: alpha · Tier 1](https://img.shields.io/badge/status-alpha%20%C2%B7%20Tier%201-orange)
