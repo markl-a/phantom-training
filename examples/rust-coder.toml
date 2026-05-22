@@ -1,0 +1,39 @@
+# phantom-training recipe: rust-coder
+# Usage:
+#   phantom-train --skill rust-coder --base qwen2.5-coder-7b \
+#                 --recipe examples/rust-coder.toml --dry-run
+
+skill_name = "rust-coder"
+base_model = "qwen2.5-coder-7b"
+backend    = "unsloth"          # tier 2: also "axolotl"
+
+# LoRA / QLoRA
+lora_rank    = 32
+lora_alpha   = 64
+lora_dropout = 0.05
+target_modules = ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+
+# Optimizer
+lr          = 2.0e-4
+epochs      = 3
+batch_size  = 4
+grad_accum  = 4
+warmup_steps = 20
+weight_decay = 0.01
+
+# Dataset
+holdout_fraction = 0.1
+max_seq_len      = 4096
+min_response_len = 32           # drop trivial responses
+
+# Eval
+benchmarks = ["HumanEval", "MBPP", "RustBench"]
+pass_threshold = 0.55           # publish only if eval >= this
+
+# Mesh dispatch
+prefer_node   = "local-mac"     # M-series first
+fallback_node = "mesh-gpu"      # any phantom-mesh peer advertising GPU cap
+
+# Publish
+publish_skill_as = "rust-coder-v2"
+require_commit_signoff = true

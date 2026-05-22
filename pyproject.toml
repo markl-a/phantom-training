@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "phantom-training"
+version = "0.1.0a0"
+description = "Agentic post-training orchestrator on phantom-mesh"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "markl-a" },
+]
+keywords = ["fine-tuning", "lora", "unsloth", "axolotl", "phantom-mesh", "agentic", "post-training"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+# Declared but NOT installed in Tier 1 — these are the Tier 2/3 backends.
+# Tier 1 only needs stdlib + tomllib (3.11+) for the CLI stub.
+dependencies = []
+
+[project.optional-dependencies]
+# Real training backends — install on demand in Tier 2+.
+unsloth = [
+    "transformers>=4.45",
+    "peft>=0.13",
+    "datasets>=3.0",
+    "accelerate>=1.0",
+    "bitsandbytes>=0.44 ; platform_system != 'Darwin'",
+    # unsloth itself is platform-specific; pin in install docs, not here.
+]
+axolotl = [
+    "transformers>=4.45",
+    "peft>=0.13",
+    "datasets>=3.0",
+    "accelerate>=1.0",
+]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+phantom-train = "phantom_training.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/markl-a/phantom-training"
+Issues = "https://github.com/markl-a/phantom-training/issues"
+"phantom-mesh" = "https://github.com/markl-a/phantom-mesh"
+
+[tool.setuptools.packages.find]
+include = ["phantom_training*"]
+exclude = ["tests*", "examples*", "docs*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -q"
