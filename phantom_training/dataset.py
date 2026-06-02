@@ -29,8 +29,11 @@ Public surface:
 
 from __future__ import annotations
 
+import json
 import logging
+import shutil
 import sqlite3
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -119,6 +122,52 @@ def _query_with_fallbacks(conn: sqlite3.Connection, skill_name: str, limit: int)
             log.debug("query=%s failed: %s", label, exc)
             continue
     return []
+
+
+def extract_from_recall(query: str = "", *, kind: str | None = None, limit: int = 2000) -> list[dict[str, Any]]:
+    """Pull events from phantom's real timeline via ``phantom recall --json``.
+
+    This is the supported read path: ``events.sqlite/fts5_events`` is dead
+    scaffolding (contentless, never synced); ``phantom recall`` decrypts the
+    canonical ``events/<id>/`` store and returns ``{event_id, timestamp, kind,
+    summary}``. Empty query → recent listing.
+
+    NOTE: life-node events are *observations* (a single ``summary``), NOT
+    prompt/response pairs — so :func:`to_instruction_rows` will skip them. They
+    are a corpus signal, not instruction data; real instruction pairs come from
+    a ``memory.db`` / Hermes-Curator trajectory store (Tier 2+). Degrades to
+    ``[]`` when phantom is unavailable.
+    """
+    if not shutil.which("phantom"):
+        return []
+    cmd = ["phantom", "recall", query, "--json", "--limit", str(int(limit))]
+    if kind:
+        cmd += ["--kind", kind]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
+    except (OSError, subprocess.SubprocessError) as exc:
+        log.debug("phantom recall failed: %s", exc)
+        return []
+    if proc.returncode != 0:
+        log.debug("phantom recall rc=%s: %s", proc.returncode, proc.stderr[:200])
+        return []
+    try:
+        events = json.loads(proc.stdout or "[]")
+    except json.JSONDecodeError:
+        return []
+    rows: list[dict[str, Any]] = []
+    for e in events:
+        rows.append({
+            "id": e.get("event_id"),
+            "ts": e.get("timestamp"),
+            "skill": e.get("kind"),
+            "prompt": "",  # observations have no prompt/response pair
+            "response": e.get("summary", ""),
+            "judged_success": 0,
+            "hermes_score": None,
+            "tags": e.get("kind", ""),
+        })
+    return rows
 
 
 def to_instruction_rows(rows: list[dict[str, Any]]) -> list[dict[str, str]]:

@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from phantom_training import __version__
-from phantom_training.dataset import extract_from_fts5
+from phantom_training.dataset import extract_from_fts5, extract_from_recall
 from phantom_training.judge import filter_success_cases
 
 DEFAULT_DB_PATH = Path.home() / ".phantom-mesh" / "memory.db"
@@ -40,7 +40,7 @@ def _load_recipe(path: Path | None) -> dict[str, Any]:
         return tomllib.load(fp)
 
 
-def _build_plan(args: argparse.Namespace, rows: list[dict[str, Any]], recipe: dict[str, Any]) -> dict[str, Any]:
+def _build_plan(args: argparse.Namespace, rows: list[dict[str, Any]], recipe: dict[str, Any], source: str) -> dict[str, Any]:
     return {
         "phantom_training_version": __version__,
         "action": "fine_tune",
@@ -59,7 +59,7 @@ def _build_plan(args: argparse.Namespace, rows: list[dict[str, Any]], recipe: di
             "grad_accum": recipe.get("grad_accum", 4),
         },
         "dataset": {
-            "source": "phantom-mesh FTS5 memory.db",
+            "source": source,
             "db_path": str(args.db),
             "candidate_rows": len(rows),
             "rows_after_curator": sum(1 for _ in filter_success_cases(rows)),
@@ -129,7 +129,13 @@ def main(argv: list[str] | None = None) -> int:
 
     recipe = _load_recipe(args.recipe)
     rows = extract_from_fts5(args.skill, args.db)
-    plan = _build_plan(args, rows, recipe)
+    source = f"phantom-mesh memory.db ({args.db})"
+    if not rows:
+        # memory.db absent/empty → fall back to the real event timeline via recall.
+        rows = extract_from_recall(args.skill)
+        if rows:
+            source = "phantom recall (life-node observations — not instruction pairs)"
+    plan = _build_plan(args, rows, recipe, source)
 
     if args.json:
         print(json.dumps(plan, indent=2, sort_keys=True))
