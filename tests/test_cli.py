@@ -170,6 +170,69 @@ def test_filter_success_cases_round_trip():
     assert len(kept) == 1
 
 
+def test_seed_fixture_then_build_dataset_writes_nonempty_jsonl(tmp_path, capsys):
+    db = tmp_path / "memory.db"
+    out = tmp_path / "ds.jsonl"
+    # seed-fixture
+    assert cli.main(["seed-fixture", "--db", str(db)]) == 0
+    # build-dataset off the seeded trajectories
+    rc = cli.main(["build-dataset", "--skill", "rust-coder", "--db", str(db), "--out", str(out)])
+    assert rc == 0
+    assert out.exists()
+    lines = [l for l in out.read_text().splitlines() if l.strip()]
+    assert len(lines) >= 5, "dataset must be non-empty / real-shaped"
+    for line in lines:
+        row = json.loads(line)
+        assert set(row) == {"instruction", "input", "output"}  # alpaca schema
+        assert row["instruction"] and row["output"]
+    # the deliberately-failed low-score rows must have been dropped by the judge
+    outputs = [json.loads(l)["output"] for l in lines]
+    assert "TODO" not in outputs
+    assert "sql-expert" not in {json.loads(l)["instruction"] for l in lines}
+
+
+def test_build_dataset_seed_if_empty(tmp_path):
+    db = tmp_path / "fresh.db"  # does not exist
+    out = tmp_path / "ds.jsonl"
+    rc = cli.main(["build-dataset", "--db", str(db), "--out", str(out), "--seed-if-empty"])
+    assert rc == 0
+    assert len([l for l in out.read_text().splitlines() if l.strip()]) >= 5
+
+
+def test_eval_produces_real_metric(tmp_path):
+    db = tmp_path / "memory.db"
+    out = tmp_path / "ds.jsonl"
+    cli.main(["seed-fixture", "--db", str(db)])
+    cli.main(["build-dataset", "--skill", "rust-coder", "--db", str(db), "--out", str(out)])
+
+    from phantom_training.eval import evaluate
+
+    result = evaluate(out, holdout_fraction=0.2)
+    assert result["n_holdout"] >= 1
+    assert result["n_train"] >= 1
+    assert 0.0 <= result["token_f1"] <= 1.0
+    assert 0.0 <= result["exact_match"] <= 1.0
+    # held-out gold is never in the train split, so a trivial retriever can't
+    # exact-match its own held-out output -> honest non-trivial number
+    assert result["n_train"] + result["n_holdout"] == result["n_rows"]
+
+
+def test_eval_token_f1_and_exact_match_math():
+    from phantom_training.eval import _token_f1, _exact_match
+
+    assert _exact_match("a  b", "a b") is True
+    assert _exact_match("a b", "a c") is False
+    assert _token_f1("the cat sat", "the cat sat") == 1.0
+    assert _token_f1("x y z", "a b c") == 0.0
+    # partial overlap: pred "a b", gold "a b c d" -> P=1.0 R=0.5 F1=0.6667
+    assert round(_token_f1("a b", "a b c d"), 4) == 0.6667
+
+
+def test_eval_missing_dataset_returns_2(tmp_path, capsys):
+    rc = cli.main(["eval", "--dataset", str(tmp_path / "nope.jsonl")])
+    assert rc == 2
+
+
 def test_cli_as_module_subprocess(tmp_path):
     """Make sure `python -m phantom_training.cli` actually works."""
     env_path = REPO_ROOT

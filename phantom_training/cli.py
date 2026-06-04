@@ -21,10 +21,13 @@ from pathlib import Path
 from typing import Any
 
 from phantom_training import __version__
-from phantom_training.dataset import extract_from_fts5, extract_from_recall
+from phantom_training import eval as eval_mod
+from phantom_training import fixtures
+from phantom_training.dataset import extract_from_fts5, extract_from_recall, to_instruction_rows
 from phantom_training.judge import filter_success_cases
 
 DEFAULT_DB_PATH = Path.home() / ".phantom-mesh" / "memory.db"
+SUBCOMMANDS = {"build-dataset", "eval", "seed-fixture"}
 
 
 def _load_recipe(path: Path | None) -> dict[str, Any]:
@@ -123,18 +126,111 @@ def _emit_pretty(plan: dict[str, Any]) -> None:
     print(f"  mode        : {mode}")
 
 
+def _collect_rows(skill: str, db: Path) -> tuple[list[dict[str, Any]], str]:
+    """Shared trajectory-collection path used by build-dataset and the planner."""
+    rows = extract_from_fts5(skill, db)
+    source = f"phantom-mesh memory.db ({db})"
+    if not rows:
+        rows = extract_from_recall(skill)
+        if rows:
+            source = "phantom recall (life-node observations — not instruction pairs)"
+    return rows, source
+
+
+def cmd_seed_fixture(argv: list[str]) -> int:
+    p = argparse.ArgumentParser(prog="phantom-train seed-fixture")
+    p.add_argument("--db", type=Path, default=DEFAULT_DB_PATH,
+                   help=f"path to write the fixture memory.db (default: {DEFAULT_DB_PATH})")
+    p.add_argument("--overwrite", action="store_true", help="replace existing rows")
+    a = p.parse_args(argv)
+    inserted = fixtures.seed_memory_db(a.db, overwrite=a.overwrite)
+    if inserted:
+        print(f"seeded {inserted} fixture trajectory rows -> {a.db}")
+    else:
+        print(f"{a.db} already populated (use --overwrite to reseed)")
+    return 0
+
+
+def cmd_build_dataset(argv: list[str]) -> int:
+    p = argparse.ArgumentParser(prog="phantom-train build-dataset")
+    p.add_argument("--skill", default="rust-coder", help="phantom skill to build a dataset for")
+    p.add_argument("--db", type=Path, default=DEFAULT_DB_PATH,
+                   help=f"phantom-mesh memory.db (default: {DEFAULT_DB_PATH})")
+    p.add_argument("--out", type=Path, required=True, help="output JSONL path")
+    p.add_argument("--seed-if-empty", action="store_true",
+                   help="seed a fixture memory.db if no trajectories are found (demo convenience)")
+    a = p.parse_args(argv)
+
+    rows, source = _collect_rows(a.skill, a.db)
+    if not rows and a.seed_if_empty:
+        fixtures.seed_memory_db(a.db)
+        rows, source = _collect_rows(a.skill, a.db)
+        source += " [seeded fixture]"
+
+    kept = list(filter_success_cases(rows))
+    instruction_rows = to_instruction_rows(kept)
+
+    a.out.parent.mkdir(parents=True, exist_ok=True)
+    with a.out.open("w", encoding="utf-8") as fp:
+        for row in instruction_rows:
+            fp.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+    print(
+        f"build-dataset: skill={a.skill} source={source}\n"
+        f"  {len(rows)} candidate -> {len(kept)} after Curator -> "
+        f"{len(instruction_rows)} alpaca rows\n"
+        f"  wrote {len(instruction_rows)} rows to {a.out}"
+    )
+    if not instruction_rows:
+        print("  (dataset empty: no successful prompt/response pairs; "
+              "try --seed-if-empty for a demo fixture)", file=sys.stderr)
+    return 0
+
+
+def cmd_eval(argv: list[str]) -> int:
+    p = argparse.ArgumentParser(prog="phantom-train eval")
+    p.add_argument("--dataset", type=Path, required=True, help="alpaca JSONL to evaluate")
+    p.add_argument("--holdout-fraction", type=float, default=0.2, help="held-out split fraction")
+    p.add_argument("--json", action="store_true", help="emit metrics as JSON")
+    a = p.parse_args(argv)
+
+    if not a.dataset.exists():
+        print(f"dataset not found: {a.dataset}", file=sys.stderr)
+        return 2
+
+    result = eval_mod.evaluate(a.dataset, holdout_fraction=a.holdout_fraction)
+    if a.json:
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0 if "error" not in result else 1
+
+    if "error" in result:
+        print(f"eval: {result['error']} (n_rows={result['n_rows']})", file=sys.stderr)
+        return 1
+    print("phantom-train eval — held-out proxy metric (trivial retrieval baseline)")
+    print(f"  rows        : {result['n_rows']} (train={result['n_train']} holdout={result['n_holdout']})")
+    print(f"  baseline    : {result['baseline']}")
+    print(f"  exact_match : {result['exact_match']}")
+    print(f"  token_f1    : {result['token_f1']}")
+    print("  NOTE: lightweight proxy floor, not a public benchmark or model eval.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
+    raw = list(sys.argv[1:] if argv is None else argv)
+    if raw and raw[0] in SUBCOMMANDS:
+        sub, rest = raw[0], raw[1:]
+        if sub == "build-dataset":
+            return cmd_build_dataset(rest)
+        if sub == "eval":
+            return cmd_eval(rest)
+        if sub == "seed-fixture":
+            return cmd_seed_fixture(rest)
+
     parser = build_parser()
     args = parser.parse_args(argv)
 
     recipe = _load_recipe(args.recipe)
-    rows = extract_from_fts5(args.skill, args.db)
-    source = f"phantom-mesh memory.db ({args.db})"
-    if not rows:
-        # memory.db absent/empty → fall back to the real event timeline via recall.
-        rows = extract_from_recall(args.skill)
-        if rows:
-            source = "phantom recall (life-node observations — not instruction pairs)"
+    rows, source = _collect_rows(args.skill, args.db)
     plan = _build_plan(args, rows, recipe, source)
 
     if args.json:
