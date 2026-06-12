@@ -144,7 +144,7 @@ def extract_from_recall(query: str = "", *, kind: str | None = None, limit: int 
     if kind:
         cmd += ["--kind", kind]
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
+        proc = subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="replace", timeout=20)
     except (OSError, subprocess.SubprocessError) as exc:
         log.debug("phantom recall failed: %s", exc)
         return []
