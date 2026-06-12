@@ -23,7 +23,7 @@ MANIFEST
 
 # Virtual envs
 .env
-.venv
+.venv*/
 env/
 venv/
 ENV/
