@@ -110,6 +110,11 @@ def _retrieve(instruction: str, train: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def evaluate(path: Path | str, *, holdout_fraction: float = 0.2) -> dict[str, Any]:
+    if not (0.0 < holdout_fraction < 1.0):
+        return {
+            "n_rows": 0,
+            "error": f"holdout_fraction must satisfy 0.0 < x < 1.0, got {holdout_fraction}",
+        }
     try:
         rows = load_jsonl(path)
     except (ValueError, OSError) as exc:

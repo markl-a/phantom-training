@@ -23,6 +23,7 @@ from typing import Any
 from phantom_training import __version__
 from phantom_training import eval as eval_mod
 from phantom_training import fixtures
+from phantom_training.config import validate_recipe
 from phantom_training.dataset import extract_from_fts5, extract_from_recall, to_instruction_rows
 from phantom_training.judge import filter_success_cases
 
@@ -39,8 +40,20 @@ def _load_recipe(path: Path | None) -> dict[str, Any]:
     # tomllib is stdlib on 3.11+
     import tomllib
 
-    with path.open("rb") as fp:
-        return tomllib.load(fp)
+    try:
+        with path.open("rb") as fp:
+            recipe = tomllib.load(fp)
+    except tomllib.TOMLDecodeError as exc:
+        print(f"recipe is not valid TOML: {path}: {exc}", file=sys.stderr)
+        sys.exit(2)
+
+    problems = validate_recipe(recipe)
+    if problems:
+        print(f"invalid recipe {path}:", file=sys.stderr)
+        for problem in problems:
+            print(f"  - {problem}", file=sys.stderr)
+        sys.exit(2)
+    return recipe
 
 
 def _build_plan(args: argparse.Namespace, rows: list[dict[str, Any]], recipe: dict[str, Any], source: str) -> dict[str, Any]:
@@ -196,6 +209,13 @@ def cmd_eval(argv: list[str]) -> int:
 
     if not a.dataset.exists():
         print(f"dataset not found: {a.dataset}", file=sys.stderr)
+        return 2
+
+    if not (0.0 < a.holdout_fraction < 1.0):
+        print(
+            f"--holdout-fraction must satisfy 0.0 < x < 1.0, got {a.holdout_fraction}",
+            file=sys.stderr,
+        )
         return 2
 
     result = eval_mod.evaluate(a.dataset, holdout_fraction=a.holdout_fraction)
