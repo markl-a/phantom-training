@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import subprocess
 import sys
@@ -101,6 +102,27 @@ def test_commit_without_backend_fails(tmp_path, capsys):
     assert "Tier 1" in err
 
 
+def test_commit_with_dry_run_is_safe_noop(tmp_path, capsys):
+    """--dry-run is a safety override: --commit --dry-run together must NOT
+    attempt training (exit 0, DRY-RUN banner), so the flag can never be the
+    thing that accidentally launches a real run."""
+    rc = cli.main(
+        [
+            "--skill",
+            "rust-coder",
+            "--base",
+            "qwen2.5-coder-7b",
+            "--commit",
+            "--dry-run",
+            "--db",
+            str(tmp_path / "missing.db"),
+        ]
+    )
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "DRY-RUN" in out
+
+
 def _seed_db(path: Path) -> None:
     conn = sqlite3.connect(path)
     conn.executescript(
@@ -179,16 +201,16 @@ def test_seed_fixture_then_build_dataset_writes_nonempty_jsonl(tmp_path, capsys)
     rc = cli.main(["build-dataset", "--skill", "rust-coder", "--db", str(db), "--out", str(out)])
     assert rc == 0
     assert out.exists()
-    lines = [l for l in out.read_text().splitlines() if l.strip()]
+    lines = [line for line in out.read_text().splitlines() if line.strip()]
     assert len(lines) >= 5, "dataset must be non-empty / real-shaped"
     for line in lines:
         row = json.loads(line)
         assert set(row) == {"instruction", "input", "output"}  # alpaca schema
         assert row["instruction"] and row["output"]
     # the deliberately-failed low-score rows must have been dropped by the judge
-    outputs = [json.loads(l)["output"] for l in lines]
+    outputs = [json.loads(line)["output"] for line in lines]
     assert "TODO" not in outputs
-    assert "sql-expert" not in {json.loads(l)["instruction"] for l in lines}
+    assert "sql-expert" not in {json.loads(line)["instruction"] for line in lines}
 
 
 def test_build_dataset_seed_if_empty(tmp_path):
@@ -196,7 +218,7 @@ def test_build_dataset_seed_if_empty(tmp_path):
     out = tmp_path / "ds.jsonl"
     rc = cli.main(["build-dataset", "--db", str(db), "--out", str(out), "--seed-if-empty"])
     assert rc == 0
-    assert len([l for l in out.read_text().splitlines() if l.strip()]) >= 5
+    assert len([line for line in out.read_text().splitlines() if line.strip()]) >= 5
 
 
 def test_eval_produces_real_metric(tmp_path):
@@ -250,6 +272,13 @@ def test_cli_as_module_subprocess(tmp_path):
             str(tmp_path / "missing.db"),
         ],
         cwd=str(env_path),
+        # Hermetic: the child process does NOT inherit the in-process conftest
+        # monkeypatch, so give it a PATH with no `phantom` binary. With a missing
+        # --db this drives `_collect_rows -> extract_from_recall`, whose
+        # `shutil.which("phantom")` then returns None in the child and recall
+        # degrades to [] (no real `phantom recall` subprocess). The assertions
+        # below are recipe-derived (--skill/--base), not recall-output-dependent.
+        env={**os.environ, "PATH": str(tmp_path)},
         capture_output=True,
         text=True,
         timeout=30,

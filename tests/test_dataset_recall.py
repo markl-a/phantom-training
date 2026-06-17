@@ -107,6 +107,32 @@ def test_extract_from_recall_passes_kind_and_limit(monkeypatch):
     assert "--kind" in cmd and "note" in cmd
 
 
+def test_extract_from_recall_non_list_json_returns_empty(monkeypatch):
+    """A valid JSON object (not a list) must degrade to [] rather than crash
+    with AttributeError when the mapper tries ``str.get``."""
+    monkeypatch.setattr(dataset.shutil, "which", lambda _name: "/usr/bin/phantom")
+    monkeypatch.setattr(
+        dataset.subprocess, "run",
+        lambda *a, **k: _FakeProc(stdout='{"event_id": "x"}', returncode=0),
+    )
+    assert extract_from_recall("x") == []
+
+
+def test_extract_from_recall_skips_non_dict_items(monkeypatch):
+    """A list mixing non-dict junk with real dict events must skip the junk
+    (no AttributeError) and still map the valid events."""
+    payload = ["not-a-dict", 7, None, {"event_id": "ok", "kind": "note", "summary": "s"}]
+    monkeypatch.setattr(dataset.shutil, "which", lambda _name: "/usr/bin/phantom")
+    monkeypatch.setattr(
+        dataset.subprocess, "run",
+        lambda *a, **k: _FakeProc(stdout=json.dumps(payload), returncode=0),
+    )
+    rows = extract_from_recall("x")
+    assert len(rows) == 1
+    assert rows[0]["id"] == "ok"
+    assert rows[0]["response"] == "s"
+
+
 def test_recall_rows_are_not_instruction_data(monkeypatch):
     """Documented invariant: life-node observations are a corpus signal, not
     instruction pairs — they carry no prompt and judged_success=0, so they are

@@ -66,6 +66,13 @@ phantom-training/
 - **延後**：真 fine-tune backend(Unsloth/Axolotl 實跑)、Ray Tune、DPO/preference、cross-device dispatch 實作、RAG eval、HF push、9-Agent benchmark。
 - **風險**：① 資料量（FTS5 現 0 列，靠 ai-feed/companion 灌 + 你日常 phantom 使用累積）② GPU（Mac M1 <4B；真訓練要 mesh GPU node）③ tagline 別吹過頭（README 標清 backend 在 roadmap）④ 跟 secure-connector 一樣別變「支援所有框架」。
 
-## 6. README 待修（誠實化）
-- tagline 加「Tier 1 = trajectory→diagnose→config→plan→report loop; real fine-tune on roadmap」。
-- 修 `memory.db`→`events.sqlite` 的敘述。
+## 6. README 誠實化（DONE 2026-06-18）
+- ✅ tagline 去掉「Tier 1 = LLM agent picks hyperparams today」的過度宣稱；標明
+  Tier 1 是 deterministic recipe-merge + token-overlap eval floor，agentic loop
+  在 Tier 2/3。
+- ✅ 讀資料敘述改成：支援路徑 = `phantom recall --json`（live timeline），
+  `memory.db` 是 fixture / Tier-2 Hermes-judged trajectory store 的 fallback
+  shape（fresh machine 為空）。`events.sqlite/fts5_events` 是 dead scaffolding
+  （見 `dataset.py` docstring）。
+- ✅ status block 補上實際已 ship 的 `seed-fixture / build-dataset / eval`
+  子指令與 recipe 範圍驗證。

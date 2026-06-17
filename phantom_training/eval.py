@@ -41,9 +41,14 @@ def load_jsonl(path: Path | str) -> list[dict[str, Any]]:
             if not line:
                 continue
             try:
-                rows.append(json.loads(line))
+                row = json.loads(line)
             except json.JSONDecodeError as exc:
                 raise ValueError(f"malformed JSON on line {lineno}: {exc}") from exc
+            if not isinstance(row, dict):
+                raise ValueError(
+                    f"line {lineno}: expected a JSON object, got {type(row).__name__}"
+                )
+            rows.append(row)
     return rows
 
 
@@ -58,7 +63,7 @@ def _split(rows: list[dict[str, Any]], holdout_fraction: float) -> tuple[list, l
     held, train = [], []
     for i, r in enumerate(rows):
         (held if (k and i % step == 0 and len(held) < k) else train).append(r)
-    if not train:  # pathological tiny input
+    if not train:  # pragma: no cover - defensive; unreachable given the k=n-1 clamp
         train = held[:1]
         held = held[1:]
     return train, held
@@ -82,7 +87,6 @@ def _token_f1(pred: str, gold: str) -> float:
         return 1.0
     if not pt or not gt:
         return 0.0
-    common: dict[str, int] = {}
     gt_counts: dict[str, int] = {}
     for t in gt:
         gt_counts[t] = gt_counts.get(t, 0) + 1
@@ -110,6 +114,11 @@ def _retrieve(instruction: str, train: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def evaluate(path: Path | str, *, holdout_fraction: float = 0.2) -> dict[str, Any]:
+    if not (0.0 < holdout_fraction < 1.0):
+        return {
+            "n_rows": 0,
+            "error": f"holdout_fraction must satisfy 0.0 < x < 1.0, got {holdout_fraction}",
+        }
     try:
         rows = load_jsonl(path)
     except (ValueError, OSError) as exc:

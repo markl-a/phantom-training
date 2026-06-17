@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -23,7 +22,13 @@ from typing import Any
 from phantom_training import __version__
 from phantom_training import eval as eval_mod
 from phantom_training import fixtures
-from phantom_training.dataset import extract_from_fts5, extract_from_recall, to_instruction_rows
+from phantom_training.config import validate_recipe
+from phantom_training.dataset import (
+    dedupe_instruction_rows,
+    extract_from_fts5,
+    extract_from_recall,
+    to_instruction_rows,
+)
 from phantom_training.judge import filter_success_cases
 
 DEFAULT_DB_PATH = Path.home() / ".phantom-mesh" / "memory.db"
@@ -39,8 +44,20 @@ def _load_recipe(path: Path | None) -> dict[str, Any]:
     # tomllib is stdlib on 3.11+
     import tomllib
 
-    with path.open("rb") as fp:
-        return tomllib.load(fp)
+    try:
+        with path.open("rb") as fp:
+            recipe = tomllib.load(fp)
+    except tomllib.TOMLDecodeError as exc:
+        print(f"recipe is not valid TOML: {path}: {exc}", file=sys.stderr)
+        sys.exit(2)
+
+    problems = validate_recipe(recipe)
+    if problems:
+        print(f"invalid recipe {path}:", file=sys.stderr)
+        for problem in problems:
+            print(f"  - {problem}", file=sys.stderr)
+        sys.exit(2)
+    return recipe
 
 
 def _build_plan(args: argparse.Namespace, rows: list[dict[str, Any]], recipe: dict[str, Any], source: str) -> dict[str, Any]:
@@ -168,7 +185,9 @@ def cmd_build_dataset(argv: list[str]) -> int:
         source += " [seeded fixture]"
 
     kept = list(filter_success_cases(rows))
-    instruction_rows = to_instruction_rows(kept)
+    paired = to_instruction_rows(kept)
+    instruction_rows = dedupe_instruction_rows(paired)
+    n_dupes = len(paired) - len(instruction_rows)
 
     a.out.parent.mkdir(parents=True, exist_ok=True)
     with a.out.open("w", encoding="utf-8") as fp:
@@ -178,7 +197,8 @@ def cmd_build_dataset(argv: list[str]) -> int:
     print(
         f"build-dataset: skill={a.skill} source={source}\n"
         f"  {len(rows)} candidate -> {len(kept)} after Curator -> "
-        f"{len(instruction_rows)} alpaca rows\n"
+        f"{len(paired)} paired -> {len(instruction_rows)} alpaca rows "
+        f"({n_dupes} duplicate{'s' if n_dupes != 1 else ''} dropped)\n"
         f"  wrote {len(instruction_rows)} rows to {a.out}"
     )
     if not instruction_rows:
@@ -196,6 +216,13 @@ def cmd_eval(argv: list[str]) -> int:
 
     if not a.dataset.exists():
         print(f"dataset not found: {a.dataset}", file=sys.stderr)
+        return 2
+
+    if not (0.0 < a.holdout_fraction < 1.0):
+        print(
+            f"--holdout-fraction must satisfy 0.0 < x < 1.0, got {a.holdout_fraction}",
+            file=sys.stderr,
+        )
         return 2
 
     result = eval_mod.evaluate(a.dataset, holdout_fraction=a.holdout_fraction)
