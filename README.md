@@ -27,21 +27,31 @@ Self-hosted on purpose — no upload to asciinema.org, no third-party tracking.
 The **first headless + agentic + cross-device** post-training orchestrator that
 sits on top of Unsloth/Axolotl and runs over a personal device mesh. Unsloth
 ships kernels, Axolotl ships YAML, AutoTrain ships SaaS — phantom-training is
-the missing piece: an **LLM agent** that pulls dataset from your own
-phantom-mesh FTS5 memory and picks hyperparams today, and (Tier 2+) dispatches
-to whichever mesh node has the right GPU and publishes the resulting LoRA back
-as a phantom skill.
+the missing piece: a planner that pulls a dataset from your own phantom-mesh
+trajectory store and emits a deterministic fine-tune plan today, and (Tier 2+)
+hands hyperparam selection to an **LLM agent**, dispatches to whichever mesh
+node has the right GPU, and publishes the resulting LoRA back as a phantom
+skill.
 
-Think `terraform apply` for fine-tuning, where the planner is an agent and the
-state lives in your phantom mesh.
+Think `terraform apply` for fine-tuning, where the state lives in your phantom
+mesh. **Honesty note:** Tier 1 is deterministic plumbing — recipe-defaults
+merge + a token-overlap eval floor, **not** an LLM agent and **not** real
+training. The agentic hyperparam loop and the GPU backend are Tier 2/3 (see
+Status).
 
-## Status (2026-05-22)
+## Status (2026-06-18)
 
-- ✅ **Tier 1 shipped**: `phantom-train` CLI (`--skill / --base / --dry-run /
-  --commit`), FTS5 dataset extractor against `~/.phantom-mesh/memory.db`,
-  Curator judge interface stub, example training recipe
-  (`examples/rust-coder.toml`), pytest smoke test. Dry-run prints a structured
-  plan — **no real training yet**.
+- ✅ **Tier 1 shipped**: `phantom-train` CLI with a planner
+  (`--skill / --base / --recipe / --dry-run / --commit / --json`) plus three
+  subcommands — `seed-fixture` (write a demo trajectory DB), `build-dataset`
+  (trajectories → Curator filter → alpaca JSONL), and `eval` (a dependency-free
+  held-out **proxy** metric: nearest-instruction retrieval scored by
+  exact-match / token-F1 — a floor, **not** a public benchmark or model eval).
+  Dataset read paths: `phantom recall --json` (the supported live timeline) with
+  a SQLite `memory.db` fallback for the Hermes-judged trajectory store (the
+  fixture/Tier-2 shape; empty on a fresh machine). Recipes are range-validated.
+  Curator judge interface stub, example recipe (`examples/rust-coder.toml`),
+  pytest suite. **No real training yet** — `--commit` exits 2 by design.
 - 🟡 **Tier 2 next** (M2): Unsloth backend wired, real LoRA fine-tune on Mac
   M-series, eval pipeline (HumanEval / MBPP).
 - 🟡 **Tier 3** (M3 W11-12, ~2026-08 target full MVP): agent-driven hyperparam
@@ -54,8 +64,16 @@ state lives in your phantom mesh.
 git clone https://github.com/markl-a/phantom-training
 cd phantom-training
 pip install -e .
+
+# 1. print a deterministic fine-tune plan (no training)
 python -m phantom_training.cli --skill rust-coder --base qwen2.5-coder-7b --dry-run
-pytest -v
+
+# 2. seed a demo trajectory DB, build an alpaca dataset, and run the eval floor
+python -m phantom_training.cli seed-fixture --db /tmp/mem.db
+python -m phantom_training.cli build-dataset --skill rust-coder --db /tmp/mem.db --out /tmp/ds.jsonl
+python -m phantom_training.cli eval --dataset /tmp/ds.jsonl
+
+pytest -q
 ```
 
 ## Architecture (within phantom-mesh ecosystem)

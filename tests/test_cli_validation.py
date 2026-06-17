@@ -116,3 +116,25 @@ def test_evaluate_function_rejects_bad_holdout(tmp_path):
 
     valid = evaluate(dataset, holdout_fraction=0.3)
     assert "error" not in valid
+
+
+def test_missing_recipe_file_exits_2(tmp_path, capsys):
+    missing_recipe = tmp_path / "does-not-exist.toml"
+
+    with pytest.raises(SystemExit) as exc:
+        cli.main(
+            [
+                "--skill",
+                "rust-coder",
+                "--base",
+                "m",
+                "--dry-run",
+                "--recipe",
+                str(missing_recipe),
+                "--db",
+                str(tmp_path / "missing.db"),
+            ]
+        )
+
+    assert exc.value.code == 2
+    assert "recipe not found" in capsys.readouterr().err
