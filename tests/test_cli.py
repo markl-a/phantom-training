@@ -101,6 +101,27 @@ def test_commit_without_backend_fails(tmp_path, capsys):
     assert "Tier 1" in err
 
 
+def test_commit_with_dry_run_is_safe_noop(tmp_path, capsys):
+    """--dry-run is a safety override: --commit --dry-run together must NOT
+    attempt training (exit 0, DRY-RUN banner), so the flag can never be the
+    thing that accidentally launches a real run."""
+    rc = cli.main(
+        [
+            "--skill",
+            "rust-coder",
+            "--base",
+            "qwen2.5-coder-7b",
+            "--commit",
+            "--dry-run",
+            "--db",
+            str(tmp_path / "missing.db"),
+        ]
+    )
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "DRY-RUN" in out
+
+
 def _seed_db(path: Path) -> None:
     conn = sqlite3.connect(path)
     conn.executescript(
