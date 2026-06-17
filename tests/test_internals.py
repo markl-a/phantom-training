@@ -132,3 +132,20 @@ def test_is_success_accepts_custom_threshold():
         {"judged_success": 1, "hermes_score": 0.5},
         threshold=0.4,
     ) is True
+
+
+def test_jaccard_empty_set_branches():
+    from phantom_training.eval import _jaccard
+
+    assert _jaccard(set(), set()) == 1.0          # both empty -> identical
+    assert _jaccard({"a"}, set()) == 0.0          # one empty -> no overlap
+    assert _jaccard(set(), {"a"}) == 0.0
+    assert _jaccard({"a", "b"}, {"b", "c"}) == 1 / 3
+
+
+def test_token_f1_empty_branches():
+    from phantom_training.eval import _token_f1
+
+    assert _token_f1("", "") == 1.0               # both empty -> trivially equal
+    assert _token_f1("a", "") == 0.0              # one empty -> 0
+    assert _token_f1("", "a") == 0.0

@@ -64,6 +64,17 @@ def test_string_numeric_field_is_reported_not_raised():
     assert validate_recipe({"lr": "fast"}) == ["lr must be a number with 0 < lr < 1.0, got 'fast'"]
 
 
+def test_benchmarks_must_be_a_list():
+    # a bare string is not a list of benchmark names -> reported, not crashed
+    problems = validate_recipe({"benchmarks": "HumanEval"})
+    assert problems == ["benchmarks must be a list of non-empty strings, got 'HumanEval'"]
+
+
+def test_benchmarks_non_string_item_reported():
+    problems = validate_recipe({"benchmarks": ["HumanEval", 7]})
+    assert problems == ["benchmarks[1] must be a non-empty string, got 7"]
+
+
 def test_unknown_keys_are_ignored():
     assert validate_recipe({"future_knob": object()}) == []
 

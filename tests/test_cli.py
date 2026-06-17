@@ -179,16 +179,16 @@ def test_seed_fixture_then_build_dataset_writes_nonempty_jsonl(tmp_path, capsys)
     rc = cli.main(["build-dataset", "--skill", "rust-coder", "--db", str(db), "--out", str(out)])
     assert rc == 0
     assert out.exists()
-    lines = [l for l in out.read_text().splitlines() if l.strip()]
+    lines = [line for line in out.read_text().splitlines() if line.strip()]
     assert len(lines) >= 5, "dataset must be non-empty / real-shaped"
     for line in lines:
         row = json.loads(line)
         assert set(row) == {"instruction", "input", "output"}  # alpaca schema
         assert row["instruction"] and row["output"]
     # the deliberately-failed low-score rows must have been dropped by the judge
-    outputs = [json.loads(l)["output"] for l in lines]
+    outputs = [json.loads(line)["output"] for line in lines]
     assert "TODO" not in outputs
-    assert "sql-expert" not in {json.loads(l)["instruction"] for l in lines}
+    assert "sql-expert" not in {json.loads(line)["instruction"] for line in lines}
 
 
 def test_build_dataset_seed_if_empty(tmp_path):
@@ -196,7 +196,7 @@ def test_build_dataset_seed_if_empty(tmp_path):
     out = tmp_path / "ds.jsonl"
     rc = cli.main(["build-dataset", "--db", str(db), "--out", str(out), "--seed-if-empty"])
     assert rc == 0
-    assert len([l for l in out.read_text().splitlines() if l.strip()]) >= 5
+    assert len([line for line in out.read_text().splitlines() if line.strip()]) >= 5
 
 
 def test_eval_produces_real_metric(tmp_path):

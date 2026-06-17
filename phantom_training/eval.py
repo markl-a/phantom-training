@@ -58,7 +58,7 @@ def _split(rows: list[dict[str, Any]], holdout_fraction: float) -> tuple[list, l
     held, train = [], []
     for i, r in enumerate(rows):
         (held if (k and i % step == 0 and len(held) < k) else train).append(r)
-    if not train:  # pathological tiny input
+    if not train:  # pragma: no cover - defensive; unreachable given the k=n-1 clamp
         train = held[:1]
         held = held[1:]
     return train, held
@@ -82,7 +82,6 @@ def _token_f1(pred: str, gold: str) -> float:
         return 1.0
     if not pt or not gt:
         return 0.0
-    common: dict[str, int] = {}
     gt_counts: dict[str, int] = {}
     for t in gt:
         gt_counts[t] = gt_counts.get(t, 0) + 1
