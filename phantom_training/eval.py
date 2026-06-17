@@ -36,11 +36,14 @@ def _tokens(text: str) -> list[str]:
 def load_jsonl(path: Path | str) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     with Path(path).open("r", encoding="utf-8") as fp:
-        for line in fp:
+        for lineno, line in enumerate(fp, start=1):
             line = line.strip()
             if not line:
                 continue
-            rows.append(json.loads(line))
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"malformed JSON on line {lineno}: {exc}") from exc
     return rows
 
 
@@ -107,7 +110,12 @@ def _retrieve(instruction: str, train: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def evaluate(path: Path | str, *, holdout_fraction: float = 0.2) -> dict[str, Any]:
-    rows = load_jsonl(path)
+    try:
+        rows = load_jsonl(path)
+    except (ValueError, OSError) as exc:
+        # Corrupt / unreadable dataset: report cleanly via the same structured
+        # error path as the "too few rows" case rather than crashing the CLI.
+        return {"n_rows": 0, "error": str(exc)}
     if len(rows) < 2:
         return {
             "n_rows": len(rows),
