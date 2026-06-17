@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import subprocess
 import sys
@@ -271,6 +272,13 @@ def test_cli_as_module_subprocess(tmp_path):
             str(tmp_path / "missing.db"),
         ],
         cwd=str(env_path),
+        # Hermetic: the child process does NOT inherit the in-process conftest
+        # monkeypatch, so give it a PATH with no `phantom` binary. With a missing
+        # --db this drives `_collect_rows -> extract_from_recall`, whose
+        # `shutil.which("phantom")` then returns None in the child and recall
+        # degrades to [] (no real `phantom recall` subprocess). The assertions
+        # below are recipe-derived (--skill/--base), not recall-output-dependent.
+        env={**os.environ, "PATH": str(tmp_path)},
         capture_output=True,
         text=True,
         timeout=30,
