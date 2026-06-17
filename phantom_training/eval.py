@@ -41,9 +41,14 @@ def load_jsonl(path: Path | str) -> list[dict[str, Any]]:
             if not line:
                 continue
             try:
-                rows.append(json.loads(line))
+                row = json.loads(line)
             except json.JSONDecodeError as exc:
                 raise ValueError(f"malformed JSON on line {lineno}: {exc}") from exc
+            if not isinstance(row, dict):
+                raise ValueError(
+                    f"line {lineno}: expected a JSON object, got {type(row).__name__}"
+                )
+            rows.append(row)
     return rows
 
 
