@@ -97,6 +97,58 @@ def test_build_dataset_empty_warns_on_stderr(tmp_path, capsys):
     assert out_jsonl.read_text(encoding="utf-8").strip() == ""
 
 
+def _make_memory_db(path):
+    conn = sqlite3.connect(path)
+    conn.executescript(
+        """
+        CREATE TABLE memory(
+            id INTEGER PRIMARY KEY,
+            ts INTEGER NOT NULL,
+            skill TEXT,
+            prompt TEXT,
+            response TEXT,
+            judged_success INTEGER DEFAULT 0,
+            hermes_score REAL,
+            tags TEXT
+        );
+        """
+    )
+    return conn
+
+
+def test_build_dataset_drops_exact_duplicate_trajectories(tmp_path, capsys):
+    """Two identical successful (prompt, response) turns must collapse to a
+    single alpaca row, and the build report must say one duplicate was dropped."""
+    db = tmp_path / "memory.db"
+    conn = _make_memory_db(db)
+    try:
+        for ts in (1, 2):  # same prompt/response captured twice
+            conn.execute(
+                "INSERT INTO memory(ts, skill, prompt, response, judged_success, hermes_score, tags) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (ts, "rust-coder", "write add", "fn add() {}", 1, 0.9, ""),
+            )
+        conn.execute(
+            "INSERT INTO memory(ts, skill, prompt, response, judged_success, hermes_score, tags) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (3, "rust-coder", "write sub", "fn sub() {}", 1, 0.9, ""),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    out = tmp_path / "ds.jsonl"
+
+    rc = cli.main(["build-dataset", "--skill", "rust-coder", "--db", str(db), "--out", str(out)])
+
+    assert rc == 0
+    report = capsys.readouterr().out
+    assert "1 duplicate dropped" in report
+    lines = [line for line in out.read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert len(lines) == 2  # add (deduped) + sub
+    instructions = sorted(json.loads(line)["instruction"] for line in lines)
+    assert instructions == ["write add", "write sub"]
+
+
 def test_seed_fixture_already_populated_message(tmp_path, capsys):
     db = tmp_path / "mem.db"
     assert cli.main(["seed-fixture", "--db", str(db)]) == 0

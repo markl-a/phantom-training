@@ -23,7 +23,12 @@ from phantom_training import __version__
 from phantom_training import eval as eval_mod
 from phantom_training import fixtures
 from phantom_training.config import validate_recipe
-from phantom_training.dataset import extract_from_fts5, extract_from_recall, to_instruction_rows
+from phantom_training.dataset import (
+    dedupe_instruction_rows,
+    extract_from_fts5,
+    extract_from_recall,
+    to_instruction_rows,
+)
 from phantom_training.judge import filter_success_cases
 
 DEFAULT_DB_PATH = Path.home() / ".phantom-mesh" / "memory.db"
@@ -180,7 +185,9 @@ def cmd_build_dataset(argv: list[str]) -> int:
         source += " [seeded fixture]"
 
     kept = list(filter_success_cases(rows))
-    instruction_rows = to_instruction_rows(kept)
+    paired = to_instruction_rows(kept)
+    instruction_rows = dedupe_instruction_rows(paired)
+    n_dupes = len(paired) - len(instruction_rows)
 
     a.out.parent.mkdir(parents=True, exist_ok=True)
     with a.out.open("w", encoding="utf-8") as fp:
@@ -190,7 +197,8 @@ def cmd_build_dataset(argv: list[str]) -> int:
     print(
         f"build-dataset: skill={a.skill} source={source}\n"
         f"  {len(rows)} candidate -> {len(kept)} after Curator -> "
-        f"{len(instruction_rows)} alpaca rows\n"
+        f"{len(paired)} paired -> {len(instruction_rows)} alpaca rows "
+        f"({n_dupes} duplicate{'s' if n_dupes != 1 else ''} dropped)\n"
         f"  wrote {len(instruction_rows)} rows to {a.out}"
     )
     if not instruction_rows:

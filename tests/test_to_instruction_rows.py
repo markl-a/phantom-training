@@ -1,4 +1,4 @@
-from phantom_training.dataset import to_instruction_rows
+from phantom_training.dataset import dedupe_instruction_rows, to_instruction_rows
 
 
 def test_strips_whitespace():
@@ -61,3 +61,46 @@ def test_pathological_object_does_not_crash():
     # Must never crash the planner — the bad value is treated as no usable
     # text and the row is dropped.
     assert to_instruction_rows([{"prompt": _Bad(), "response": "r"}]) == []
+
+
+def test_dedupe_drops_exact_duplicates_preserving_order():
+    rows = [
+        {"instruction": "a", "input": "", "output": "1"},
+        {"instruction": "b", "input": "", "output": "2"},
+        {"instruction": "a", "input": "", "output": "1"},  # exact dup of #1
+        {"instruction": "c", "input": "", "output": "3"},
+    ]
+    deduped = dedupe_instruction_rows(rows)
+    assert [r["instruction"] for r in deduped] == ["a", "b", "c"]
+
+
+def test_dedupe_keeps_rows_differing_only_in_output():
+    # same instruction but a different output is a distinct training example
+    rows = [
+        {"instruction": "a", "input": "", "output": "1"},
+        {"instruction": "a", "input": "", "output": "2"},
+    ]
+    assert dedupe_instruction_rows(rows) == rows
+
+
+def test_dedupe_keeps_rows_differing_only_in_input():
+    rows = [
+        {"instruction": "a", "input": "ctx1", "output": "1"},
+        {"instruction": "a", "input": "ctx2", "output": "1"},
+    ]
+    assert dedupe_instruction_rows(rows) == rows
+
+
+def test_dedupe_empty_and_singleton():
+    assert dedupe_instruction_rows([]) == []
+    one = [{"instruction": "a", "input": "", "output": "1"}]
+    assert dedupe_instruction_rows(one) == one
+
+
+def test_dedupe_is_idempotent():
+    rows = [
+        {"instruction": "a", "input": "", "output": "1"},
+        {"instruction": "a", "input": "", "output": "1"},
+    ]
+    once = dedupe_instruction_rows(rows)
+    assert dedupe_instruction_rows(once) == once

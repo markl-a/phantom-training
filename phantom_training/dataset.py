@@ -220,3 +220,24 @@ def to_instruction_rows(rows: list[dict[str, Any]]) -> list[dict[str, str]]:
             continue
         out.append({"instruction": prompt, "input": "", "output": response})
     return out
+
+
+def dedupe_instruction_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Remove exact-duplicate alpaca rows, preserving first-seen order.
+
+    Two rows are duplicates iff their ``(instruction, input, output)`` triple is
+    identical. Order-preserving (first-seen wins; a ``seen`` set tracks keys
+    while output order follows input order) so the dataset stays deterministic.
+    Real trajectory stores capture the same successful turn more
+    than once; duplicates inflate the dataset and bias the eval retrieval
+    baseline, so the dataset builder drops them.
+    """
+    seen: set[tuple[Any, Any, Any]] = set()
+    out: list[dict[str, str]] = []
+    for r in rows:
+        key = (r.get("instruction"), r.get("input"), r.get("output"))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(r)
+    return out
