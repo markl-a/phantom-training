@@ -170,6 +170,35 @@ def extract_from_recall(query: str = "", *, kind: str | None = None, limit: int 
     return rows
 
 
+def _coerce(value: Any) -> str:
+    """Coerce a raw memory value to a string without ever raising.
+
+    Preserves the original ``(value or "").strip()`` drop-empty semantics:
+    falsy values (``None``, ``0``, ``0.0``, ``False``, ``""``) collapse to the
+    empty string and are dropped by :func:`to_instruction_rows`. The only
+    behavioural change is that a *truthy* non-string value (e.g. an int from a
+    mis-typed DB column) is now stringified instead of crashing with
+    ``AttributeError``. ``bytes`` are decoded leniently.
+    """
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, bytes):
+        try:
+            return value.decode("utf-8", errors="ignore")
+        except Exception:  # pragma: no cover - bytes.decode is total here
+            return ""
+    try:
+        if not value:  # falsy 0/0.0/False -> drop, matching (value or "")
+            return ""
+        return str(value)
+    except Exception:
+        # Pathological object whose __bool__/__str__ raises: never crash the
+        # planner — treat as no usable text and drop the row.
+        return ""
+
+
 def to_instruction_rows(rows: list[dict[str, Any]]) -> list[dict[str, str]]:
     """Convert raw memory rows to instruction-tuning format.
 
@@ -181,8 +210,8 @@ def to_instruction_rows(rows: list[dict[str, Any]]) -> list[dict[str, str]]:
     """
     out: list[dict[str, str]] = []
     for r in rows:
-        prompt = (r.get("prompt") or "").strip()
-        response = (r.get("response") or "").strip()
+        prompt = _coerce(r.get("prompt")).strip()
+        response = _coerce(r.get("response")).strip()
         if not prompt or not response:
             continue
         out.append({"instruction": prompt, "input": "", "output": response})
