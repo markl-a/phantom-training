@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/markl-a/phantom-training/actions/workflows/ci.yml/badge.svg)](https://github.com/markl-a/phantom-training/actions/workflows/ci.yml)
 
-> **Agentic post-training orchestrator on phantom-mesh** — 跨裝置、self-hosted、agent 自動挑 base model + hyperparams + 產生 fine-tune plan(Tier 1;真實 fine-tune 在 Tier 2 接 Unsloth),招聘對齊 NVIDIA / Anthropic / Modal。
+> **Agentic post-training orchestrator on phantom-mesh** — 跨裝置、self-hosted。Tier 1（今日）是 deterministic recipe-merge(`--base` 必填)+ build-dataset + token-overlap eval floor；agentic 自動挑 base model + hyperparams 與真實 fine-tune(Unsloth)在 Tier 2/3。招聘對齊 NVIDIA / Anthropic / Modal。
 
 ![status: alpha · Tier 1](https://img.shields.io/badge/status-alpha%20%C2%B7%20Tier%201-orange)
 ![license: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)
