@@ -155,8 +155,12 @@ def extract_from_recall(query: str = "", *, kind: str | None = None, limit: int 
         events = json.loads(proc.stdout or "[]")
     except json.JSONDecodeError:
         return []
+    if not isinstance(events, list):
+        return []
     rows: list[dict[str, Any]] = []
     for e in events:
+        if not isinstance(e, dict):
+            continue
         rows.append({
             "id": e.get("event_id"),
             "ts": e.get("timestamp"),

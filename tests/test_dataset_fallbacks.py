@@ -1,5 +1,6 @@
 import sqlite3
 
+from phantom_training import dataset
 from phantom_training.dataset import extract_from_fts5
 
 
@@ -127,3 +128,18 @@ def test_readonly_mode_does_not_create_db(tmp_path):
 
     assert extract_from_fts5("x", db_path) == []
     assert not db_path.exists()
+
+
+def test_connect_failure_returns_empty_not_raise(tmp_path, monkeypatch):
+    """If sqlite3.connect itself raises (e.g. EMFILE / OS-level open failure
+    after the existence check), extract_from_fts5 must degrade to [] rather
+    than propagate the error and crash the planner."""
+    db_path = tmp_path / "memory.db"
+    db_path.write_bytes(b"")  # exists() check passes
+
+    def _boom(*_a, **_k):
+        raise sqlite3.OperationalError("unable to open database file")
+
+    monkeypatch.setattr(dataset.sqlite3, "connect", _boom)
+
+    assert extract_from_fts5("x", db_path) == []
