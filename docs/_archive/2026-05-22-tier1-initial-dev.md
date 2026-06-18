@@ -1,3 +1,5 @@
+> ARCHIVED 2026-06-19 — frozen historical snapshot; current status lives in /ROADMAP.md
+
 # 2026-05-22 — phantom-training Tier 1 initial dev
 
 ## What's in this commit (alpha scaffold, ~600 LOC)
