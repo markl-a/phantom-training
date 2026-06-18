@@ -4,9 +4,10 @@
 
 > **Agentic post-training orchestrator on phantom-mesh** — 跨裝置、self-hosted。Tier 1（今日）是 deterministic recipe-merge(`--base` 必填)+ build-dataset + token-overlap eval floor；agentic 自動挑 base model + hyperparams 與真實 fine-tune(Unsloth)在 Tier 2/3。招聘對齊 NVIDIA / Anthropic / Modal。
 
-![status: alpha · Tier 1](https://img.shields.io/badge/status-alpha%20%C2%B7%20Tier%201-orange)
 ![license: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)
 [![phantom-mesh ecosystem](https://img.shields.io/badge/ecosystem-phantom--mesh-purple)](https://github.com/markl-a/phantom-mesh)
+
+**Status:** see [ROADMAP.md](ROADMAP.md) · **Docs:** see [docs/INDEX.md](docs/INDEX.md)
 
 ## 30-second demo
 
@@ -37,26 +38,12 @@ Think `terraform apply` for fine-tuning, where the state lives in your phantom
 mesh. **Honesty note:** Tier 1 is deterministic plumbing — recipe-defaults
 merge + a token-overlap eval floor, **not** an LLM agent and **not** real
 training. The agentic hyperparam loop and the GPU backend are Tier 2/3 (see
-Status).
+[ROADMAP.md](ROADMAP.md)).
 
-## Status (2026-06-18)
+## Status
 
-- ✅ **Tier 1 shipped**: `phantom-train` CLI with a planner
-  (`--skill / --base / --recipe / --dry-run / --commit / --json`) plus three
-  subcommands — `seed-fixture` (write a demo trajectory DB), `build-dataset`
-  (trajectories → Curator filter → alpaca JSONL), and `eval` (a dependency-free
-  held-out **proxy** metric: nearest-instruction retrieval scored by
-  exact-match / token-F1 — a floor, **not** a public benchmark or model eval).
-  Dataset read paths: `phantom recall --json` (the supported live timeline) with
-  a SQLite `memory.db` fallback for the Hermes-judged trajectory store (the
-  fixture/Tier-2 shape; empty on a fresh machine). Recipes are range-validated.
-  Curator judge interface stub, example recipe (`examples/rust-coder.toml`),
-  pytest suite. **No real training yet** — `--commit` exits 2 by design.
-- 🟡 **Tier 2 next** (M2): Unsloth backend wired, real LoRA fine-tune on Mac
-  M-series, eval pipeline (HumanEval / MBPP).
-- 🟡 **Tier 3** (M3 W11-12, ~2026-08 target full MVP): agent-driven hyperparam
-  search (LaMDAgent-style loop), cross-device dispatch via phantom-mesh, skill
-  publish loop.
+Shipped / in-progress / planned status lives in one place: **see
+[ROADMAP.md](ROADMAP.md)**.
 
 ## 30-second quickstart
 
@@ -72,6 +59,9 @@ python -m phantom_training.cli --skill rust-coder --base qwen2.5-coder-7b --dry-
 python -m phantom_training.cli seed-fixture --db /tmp/mem.db
 python -m phantom_training.cli build-dataset --skill rust-coder --db /tmp/mem.db --out /tmp/ds.jsonl
 python -m phantom_training.cli eval --dataset /tmp/ds.jsonl
+
+# 3. (optional) score candidate solutions with the hermetic judge
+python -m phantom_training.cli judge --tasks tasks.jsonl
 
 pytest -q
 ```
@@ -101,6 +91,11 @@ phantom-training agent (this repo):
 Pillars served: **P3** (進化網 / self-improving), **P4** (加密為先 — training
 data never leaves the mesh, weights encrypted at rest).
 
+> The diagram above is the *target* loop. For the canonical design — interfaces,
+> moat analysis, deferred scope, and risks — see [`DESIGN.md`](DESIGN.md) and
+> [`docs/02-phantom-training.md`](docs/02-phantom-training.md). For what is
+> actually shipped vs planned, see [`ROADMAP.md`](ROADMAP.md).
+
 ## Target users (recruiter / co-builder angle)
 
 - **Recruiters**: hits JD keywords for **NVIDIA training infra**, **Anthropic
@@ -109,19 +104,15 @@ data never leaves the mesh, weights encrypted at rest).
   systems, agent loops, distributed GPU dispatch, public benchmark eval.
 - **Co-builders**: anyone who wants `terraform apply` ergonomics for LoRA
   fine-tuning over a personal-device mesh; fork-friendly Tier 1 surface
-  (~300 LOC entry points).
+  (~1.2k LOC across 7 stdlib-only modules: `cli`, `config`, `dataset`, `eval`,
+  `fixtures`, `judge`, `hermetic_judge`).
 
-## Roadmap (per master plan)
+## Roadmap
 
-Full design + competitor matrix + risk register lives at
-`docs/02-phantom-training.md` (sanitized copy of internal spec). 3-bullet
-version:
-
-1. **M2** — Unsloth backend, real LoRA on M-series, eval pipeline.
-2. **M3 W11-12** — agent hyperparam search, cross-device dispatch, skill
-   publish loop, 1 end-to-end demo (`phantom train --skill rust-coder`).
-3. **Post-M3** — DPO / preference learning, model registry, 9-Agent Landscape
-   benchmark auto-runs.
+Tiered roadmap (Tier 2 / Tier 3 / Post-M3) lives in **[ROADMAP.md](ROADMAP.md)**.
+The full design, competitor matrix, and risk register are in
+[`DESIGN.md`](DESIGN.md) and [`docs/02-phantom-training.md`](docs/02-phantom-training.md)
+(sanitized copy of the internal spec); start from [`docs/INDEX.md`](docs/INDEX.md).
 
 ## License
 
