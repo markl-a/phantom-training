@@ -1,4 +1,9 @@
-"""Curator-style success judge (Tier 1 stub).
+"""Curator-style success judge.
+
+When a row carries reference tests or a reference answer, this module now
+performs real deterministic evaluation: code is judged by sandboxed subprocess
+pass-rate, while QA is judged by normalized answer match. Rows without ground
+truth still use the original permissive Tier 1 column-check fallback.
 
 In Tier 2 this becomes a real LLM judge call into phantom-mesh's Hermes
 Curator (or an embedded distilled judge model). For Tier 1 we expose the
@@ -23,6 +28,11 @@ DEFAULT_SCORE_THRESHOLD = 0.6
 
 def is_success(row: dict[str, Any], *, threshold: float = DEFAULT_SCORE_THRESHOLD) -> bool:
     """Tier 1 heuristic: success unless we have evidence otherwise."""
+    if row.get("tests") or row.get("reference"):
+        from phantom_training.hermetic_judge import judge_task
+
+        return judge_task(row, threshold=threshold)["accepted"]
+
     judged = row.get("judged_success")
     if judged is not None:
         try:

@@ -4,6 +4,7 @@ Usage::
 
     phantom-train --skill rust-coder --base qwen2.5-coder-7b --dry-run
     phantom-train --skill rust-coder --base qwen2.5-coder-7b --recipe examples/rust-coder.toml --commit
+    phantom-train judge --tasks tasks.jsonl
 
 Tier 1 behaviour: parse args, load optional recipe, query FTS5 for candidate
 training rows, apply the Curator judge stub, and print a structured plan.
@@ -32,7 +33,7 @@ from phantom_training.dataset import (
 from phantom_training.judge import filter_success_cases
 
 DEFAULT_DB_PATH = Path.home() / ".phantom-mesh" / "memory.db"
-SUBCOMMANDS = {"build-dataset", "eval", "seed-fixture"}
+SUBCOMMANDS = {"build-dataset", "eval", "judge", "seed-fixture"}
 
 
 def _load_recipe(path: Path | None) -> dict[str, Any]:
@@ -242,6 +243,70 @@ def cmd_eval(argv: list[str]) -> int:
     return 0
 
 
+def cmd_judge(argv: list[str]) -> int:
+    p = argparse.ArgumentParser(prog="phantom-train judge")
+    p.add_argument("--tasks", type=Path, required=True, help="JSONL tasks to judge")
+    p.add_argument("--threshold", type=float, default=0.6, help="acceptance threshold")
+    p.add_argument("--timeout", type=float, default=10.0, help="sandboxed code execution timeout")
+    p.add_argument("--json", action="store_true", help="emit judge results as JSON")
+    a = p.parse_args(argv)
+
+    if not a.tasks.exists():
+        print(f"tasks not found: {a.tasks}", file=sys.stderr)
+        return 2
+
+    tasks: list[dict[str, Any]] = []
+    with a.tasks.open(encoding="utf-8") as fp:
+        for line_no, line in enumerate(fp, start=1):
+            if not line.strip():
+                continue
+            try:
+                task = json.loads(line)
+            except json.JSONDecodeError as exc:
+                print(f"malformed JSONL at line {line_no}: {exc}", file=sys.stderr)
+                return 2
+            if not isinstance(task, dict):
+                print(f"malformed JSONL at line {line_no}: task must be an object", file=sys.stderr)
+                return 2
+            tasks.append(task)
+
+    if not tasks:
+        print("no tasks", file=sys.stderr)
+        return 2
+
+    from phantom_training.hermetic_judge import judge_task
+
+    results: list[dict[str, Any]] = []
+    for index, task in enumerate(tasks, start=1):
+        try:
+            result = judge_task(task, threshold=a.threshold, timeout=a.timeout)
+        except ValueError as exc:
+            print(f"task {index}: {exc}", file=sys.stderr)
+            return 2
+        results.append(result)
+
+    n_accepted = sum(1 for result in results if result["accepted"])
+    if a.json:
+        print(
+            json.dumps(
+                {
+                    "threshold": a.threshold,
+                    "n_total": len(results),
+                    "n_accepted": n_accepted,
+                    "results": results,
+                },
+                indent=2,
+            )
+        )
+    else:
+        for index, result in enumerate(results, start=1):
+            status = "ACCEPT" if result["accepted"] else "REJECT"
+            print(f"task {index}: kind={result['kind']} score={result['score']:.4f} -> {status}")
+        print(f"judge: {n_accepted}/{len(results)} accepted (threshold={a.threshold})")
+
+    return 0 if n_accepted == len(results) else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
     if raw and raw[0] in SUBCOMMANDS:
@@ -250,6 +315,8 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_build_dataset(rest)
         if sub == "eval":
             return cmd_eval(rest)
+        if sub == "judge":
+            return cmd_judge(rest)
         if sub == "seed-fixture":
             return cmd_seed_fixture(rest)
 
