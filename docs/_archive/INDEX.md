@@ -1,3 +1,5 @@
+> ARCHIVED 2026-06-19 — 內容已併入 docs/phantom-training.md;此為歷史版本。
+
 # Documentation index
 
 Single navigation entry for the phantom-training knowledge base. Each doc below

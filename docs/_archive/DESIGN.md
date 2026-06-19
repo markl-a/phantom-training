@@ -1,3 +1,5 @@
+> ARCHIVED 2026-06-19 — 內容已併入 docs/phantom-training.md;此為歷史版本。
+
 # phantom-training — DESIGN（reframe 2026-06-02）
 
 > 取代「Agent 包一層 fine-tune CLI」的舊定位。核心價值在**訓練閉環**，不是 wrapper。
