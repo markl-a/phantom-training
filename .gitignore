@@ -79,3 +79,11 @@ models/cache/
 *.arrow
 *.jsonl.gz
 exports/
+
+# Autonomous loop scratch (never push to public repo — may carry private host/path leaks)
+.ai-shared/
+overnight/
+SESSION_RESUME.md
+cache/
+TASK-*.md
+configs/agents.*.toml
