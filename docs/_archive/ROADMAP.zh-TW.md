@@ -62,15 +62,15 @@ flowchart TD
 ## ③ 分期表（在哪台機 + 哪 AI + 風險前置）
 
 > 排序原則：**便宜高值先 → 護城河先 → 需 GPU/裝置/操作者決策的後做**。
-> 開發模型：單人多機（z13 / M5 / M1 / acer / ayaneo / Android）；**寫 = codex/claude，
+> 開發模型：單人多機（多個 Windows node / 多個 Mac node / Android worker）；**寫 = codex/claude，
 > 審 ≥ 2 個 distinct-AI，governor + 雙閘 → 手機核可**。OSS 選型只標「候選方向」。
 
 | 階段 | 目標 | 具體項（2–4，grounded） | 在哪台機 + 哪 AI | 風險前置 ⚠️ |
 |---|---|---|---|---|
-| **S0 · 便宜高值**（無 GPU，先做）| 把 Tier-2 接口長好但不訓練 | • plan schema 對齊 PEFT `LoraConfig`<br/>• 定義 `Backend.train(plan,dataset)→adapter_path` seam（no-op/dry-run 實作）<br/>• 維持 hermetic 套件全綠 | **z13**（Win）寫=codex，審=claude+agy；純 Python 重活可丟 **acer/ayaneo** | 介面定錯→Tier-2 重工。先寫 schema 測試鎖死；**[候選方向] PEFT** |
-| **S1 · 護城河**（無 GPU）| 把真實來源/判斷接上 | • 真 Hermes Curator HTTP call 取代啟發式<br/>• `phantom recall --json` 主路徑強化、`memory.db` fallback<br/>• 資料健檢（格式/洩漏/token 長度） | **z13** 寫=codex，審=claude+opencode；需 phantom-mesh serve 在本機 | recall 軌跡資料量可能不足 → 先靠 ai-feed/companion 灌 + 日常累積；serve 介面飄移 → 先鎖 contract 測試 |
-| **S2 · 真訓練**（需 GPU/裝置）| 第一個真 LoRA | • Unsloth backend（`phantom-training[unsloth]` optional，subprocess 隔離）<br/>• 真 LoRA on **Mac M-series**<br/>• bigcode-eval HumanEval/MBPP（optional gate） | 寫=codex/claude on **z13**；**真訓練在 M1/M5（Mac M-series）或有 GPU 的 mesh node** | ⚠️ Mac M1 16GB 只能 ≤4B；**Unsloth 雙授權（Apache+AGPL）需先做授權盤點**[候選方向]；Windows Defender 鎖 target |
-| **S3 · agentic + 派工**（需操作者決策）| 自動調參 + 跨機 | • agent 調參迴圈（DSPy/LaMDAgent 風格，eval miss → 重提案重跑）<br/>• 跨裝置派工（mesh capability dispatcher）<br/>• skill-publish 回 phantom-mesh | 寫=codex/claude；派工跨 **acer/ayaneo/Android/Mac**，**governor 雙閘 → 手機核可** | 派工=高風險動作 → 強制 governor 暫停 + 手機核可；自評 overfit → 強制 public eval set |
+| **S0 · 便宜高值**（無 GPU，先做）| 把 Tier-2 接口長好但不訓練 | • plan schema 對齊 PEFT `LoraConfig`<br/>• 定義 `Backend.train(plan,dataset)→adapter_path` seam（no-op/dry-run 實作）<br/>• 維持 hermetic 套件全綠 | **一個 Windows node**（Win）寫=codex，審=claude+agy；純 Python 重活可丟**另一個 Windows node** | 介面定錯→Tier-2 重工。先寫 schema 測試鎖死；**[候選方向] PEFT** |
+| **S1 · 護城河**（無 GPU）| 把真實來源/判斷接上 | • 真 Hermes Curator HTTP call 取代啟發式<br/>• `phantom recall --json` 主路徑強化、`memory.db` fallback<br/>• 資料健檢（格式/洩漏/token 長度） | **一個 Windows node** 寫=codex，審=claude+opencode；需 phantom-mesh serve 在本機 | recall 軌跡資料量可能不足 → 先靠 ai-feed/companion 灌 + 日常累積；serve 介面飄移 → 先鎖 contract 測試 |
+| **S2 · 真訓練**（需 GPU/裝置）| 第一個真 LoRA | • Unsloth backend（`phantom-training[unsloth]` optional，subprocess 隔離）<br/>• 真 LoRA on **Mac M-series**<br/>• bigcode-eval HumanEval/MBPP（optional gate） | 寫=codex/claude on **一個 Windows node**；**真訓練在 Mac node（Apple M-series）或有 GPU 的 mesh node** | ⚠️ Apple M1 16GB 只能 ≤4B；**Unsloth 雙授權（Apache+AGPL）需先做授權盤點**[候選方向]；Windows Defender 鎖 target |
+| **S3 · agentic + 派工**（需操作者決策）| 自動調參 + 跨機 | • agent 調參迴圈（DSPy/LaMDAgent 風格，eval miss → 重提案重跑）<br/>• 跨裝置派工（mesh capability dispatcher）<br/>• skill-publish 回 phantom-mesh | 寫=codex/claude；派工跨 **多個 Windows node / Android worker / Mac node**，**governor 雙閘 → 手機核可** | 派工=高風險動作 → 強制 governor 暫停 + 手機核可；自評 overfit → 強制 public eval set |
 | **S4 · 遠期**（Post-M3）| 偏好學習 + 治理 | • DPO/preference（TRL）<br/>• model registry + 版本控管<br/>• 9-Agent benchmark 定期跑 | 寫=codex/claude，審 ≥2 AI；訓練在 GPU node | 範圍易爆 → 全列 optional extra；**[候選方向] TRL** |
 
 ---
