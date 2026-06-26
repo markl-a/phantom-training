@@ -171,7 +171,7 @@ Remaining P4 work: release notes finalization, tag plan, final maintainer approv
 
 ## P4 Release-Prep Slice 4
 
-Status: maintainer approval recorded, conductor sign-off complete, and local tag created; remote publication pending.
+Status: maintainer approval recorded, conductor sign-off complete, and release-candidate tag created.
 
 Evidence:
 - `docs/RELEASE_NOTES.md` records public release-candidate notes, known limitations, and verification pointers.
@@ -183,4 +183,4 @@ Evidence:
 - `python -m pytest -q`: passed.
 - `python -m pytest --collect-only -q`: 152 tests collected.
 
-Remaining publication work: confirm target remote and repository visibility before pushing tags or publishing release pages.
+Remaining P4 work: none for the approved release-candidate tag.
