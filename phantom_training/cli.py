@@ -33,7 +33,15 @@ from phantom_training.dataset import (
 from phantom_training.judge import filter_success_cases
 
 DEFAULT_DB_PATH = Path.home() / ".phantom-mesh" / "memory.db"
-SUBCOMMANDS = {"build-dataset", "eval", "judge", "seed-fixture"}
+SUBCOMMANDS = {
+    "backend-lifecycle",
+    "build-dataset",
+    "demo-loop",
+    "eval",
+    "eval-judge-scenario",
+    "judge",
+    "seed-fixture",
+}
 
 
 def _load_recipe(path: Path | None) -> dict[str, Any]:
@@ -167,6 +175,36 @@ def cmd_seed_fixture(argv: list[str]) -> int:
     else:
         print(f"{a.db} already populated (use --overwrite to reseed)")
     return 0
+
+
+def cmd_demo_loop(argv: list[str]) -> int:
+    p = argparse.ArgumentParser(prog="phantom-train demo-loop")
+    p.add_argument("--out", type=Path, required=True, help="output directory for the P2 artifact bundle")
+    a = p.parse_args(argv)
+
+    from phantom_training.demo_loop import main as demo_loop_main
+
+    return demo_loop_main(["--out", str(a.out)])
+
+
+def cmd_backend_lifecycle(argv: list[str]) -> int:
+    p = argparse.ArgumentParser(prog="phantom-train backend-lifecycle")
+    p.add_argument("--out", type=Path, required=True, help="output directory for the lifecycle bundle")
+    a = p.parse_args(argv)
+
+    from phantom_training.backend_lifecycle import main as lifecycle_main
+
+    return lifecycle_main(["--out", str(a.out)])
+
+
+def cmd_eval_judge_scenario(argv: list[str]) -> int:
+    p = argparse.ArgumentParser(prog="phantom-train eval-judge-scenario")
+    p.add_argument("--out", type=Path, required=True, help="output directory for the P3 scenario bundle")
+    a = p.parse_args(argv)
+
+    from phantom_training.eval_judge_scenario import main as scenario_main
+
+    return scenario_main(["--out", str(a.out)])
 
 
 def cmd_build_dataset(argv: list[str]) -> int:
@@ -313,6 +351,12 @@ def main(argv: list[str] | None = None) -> int:
         sub, rest = raw[0], raw[1:]
         if sub == "build-dataset":
             return cmd_build_dataset(rest)
+        if sub == "backend-lifecycle":
+            return cmd_backend_lifecycle(rest)
+        if sub == "demo-loop":
+            return cmd_demo_loop(rest)
+        if sub == "eval-judge-scenario":
+            return cmd_eval_judge_scenario(rest)
         if sub == "eval":
             return cmd_eval(rest)
         if sub == "judge":

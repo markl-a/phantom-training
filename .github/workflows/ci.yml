@@ -14,3 +14,5 @@ jobs:
           python-version: '3.11'
       - run: pip install -e ".[dev]"
       - run: pytest -ra -q
+      - name: release-prep gate
+        run: python -m pytest tests/test_release_prep_contract.py -q

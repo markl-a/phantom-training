@@ -53,6 +53,20 @@ def test_console_entrypoint_target_is_importable_and_callable():
     assert entry is cli.main
 
 
+def test_demo_loop_entrypoint_target_is_importable_and_callable():
+    with PYPROJECT.open("rb") as fp:
+        pyproject = tomllib.load(fp)
+    target = pyproject["project"]["scripts"]["phantom-training-demo-loop"]
+    assert target == "phantom_training.demo_loop:main"
+
+    module_path, _, attr = target.partition(":")
+    import importlib
+
+    mod = importlib.import_module(module_path)
+    entry = getattr(mod, attr)
+    assert callable(entry)
+
+
 def test_console_entrypoint_returns_int_exit_code(tmp_path):
     """The entry point must return an int (not None) so the wrapper's
     `sys.exit(rc)` yields a meaningful process exit status."""

@@ -51,6 +51,9 @@ dev = [
 
 [project.scripts]
 phantom-train = "phantom_training.cli:main"
+phantom-training-demo-loop = "phantom_training.demo_loop:main"
+phantom-training-backend-lifecycle = "phantom_training.backend_lifecycle:main"
+phantom-training-eval-judge-scenario = "phantom_training.eval_judge_scenario:main"
 
 [project.urls]
 Homepage = "https://github.com/markl-a/phantom-training"
