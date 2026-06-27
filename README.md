@@ -14,6 +14,7 @@ Tier 1 public demo 只展示 deterministic plumbing: plan -> seed fixture -> bui
 
 ```powershell
 python -m pip install -e .[dev]
+python -m pip install -e . --dry-run --no-deps
 python -m pytest -q
 
 $root = Join-Path $env:TEMP "phantom-training-demo"

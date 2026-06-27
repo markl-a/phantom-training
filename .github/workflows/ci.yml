@@ -12,7 +12,23 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install -e ".[dev]"
-      - run: pytest -ra -q
+      - name: Install package with dev extra
+        run: python -m pip install -e ".[dev]"
+      - name: install dry-run
+        run: python -m pip install -e . --dry-run --no-deps
+      - name: wheel build
+        run: python -m pip wheel . --no-deps -w dist
+      - name: ruff
+        run: python -m ruff check phantom_training tests
+      - name: public deterministic smoke
+        run: |
+          python -m phantom_training.cli demo-loop --out /tmp/phantom-training-demo
+          test -f /tmp/phantom-training-demo/manifest.json
+          python -m phantom_training.cli backend-lifecycle --out /tmp/phantom-training-lifecycle
+          test -f /tmp/phantom-training-lifecycle/manifest.json
+          python -m phantom_training.cli eval-judge-scenario --out /tmp/phantom-training-eval-judge
+          test -f /tmp/phantom-training-eval-judge/manifest.json
+      - name: pytest
+        run: python -m pytest -q
       - name: release-prep gate
         run: python -m pytest tests/test_release_prep_contract.py -q

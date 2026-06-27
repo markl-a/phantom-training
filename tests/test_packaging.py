@@ -53,6 +53,20 @@ def test_console_entrypoint_target_is_importable_and_callable():
     assert entry is cli.main
 
 
+def test_pyproject_metadata_matches_public_release_gate():
+    with PYPROJECT.open("rb") as fp:
+        project = tomllib.load(fp)["project"]
+
+    assert project["name"] == "phantom-training"
+    assert project["version"] == "0.1.0a0"
+    assert project["license"] == "Apache-2.0"
+    assert project["requires-python"] == ">=3.11"
+    assert project["dependencies"] == []
+    assert "Topic :: Scientific/Engineering :: Artificial Intelligence" in project["classifiers"]
+    assert "Repository" in project["urls"]
+    assert "Documentation" in project["urls"]
+
+
 def test_demo_loop_entrypoint_target_is_importable_and_callable():
     with PYPROJECT.open("rb") as fp:
         pyproject = tomllib.load(fp)
@@ -65,6 +79,15 @@ def test_demo_loop_entrypoint_target_is_importable_and_callable():
     mod = importlib.import_module(module_path)
     entry = getattr(mod, attr)
     assert callable(entry)
+
+
+def test_public_demo_entrypoints_are_declared():
+    with PYPROJECT.open("rb") as fp:
+        scripts = tomllib.load(fp)["project"]["scripts"]
+
+    assert scripts["phantom-training-demo-loop"] == "phantom_training.demo_loop:main"
+    assert scripts["phantom-training-backend-lifecycle"] == "phantom_training.backend_lifecycle:main"
+    assert scripts["phantom-training-eval-judge-scenario"] == "phantom_training.eval_judge_scenario:main"
 
 
 def test_console_entrypoint_returns_int_exit_code(tmp_path):

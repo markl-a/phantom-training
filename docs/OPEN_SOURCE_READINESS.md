@@ -1,7 +1,7 @@
 # Open Source Readiness
 
 Project: `phantom-training`
-Current phase: P3 deterministic eval/judge pipeline scenario verified
+Current phase: P4 installable public release candidate verified
 Master plan: `../../PHANTOM-SATELLITES-OPEN-SOURCE-MASTER-PLAN.md`
 
 ## Shipped Features
@@ -19,6 +19,7 @@ Master plan: `../../PHANTOM-SATELLITES-OPEN-SOURCE-MASTER-PLAN.md`
 - P2 `demo-loop` writes a deterministic bundle with `dataset-card.json`, `run-manifest.json`, `backend-adapter-contract.json`, `eval.json`, `judge.json`, and `summary.md`.
 - P2 `backend-lifecycle` writes a deterministic validation bundle with `backend-lifecycle.json`, `dataset-card-validation.json`, `run-manifest-validation.json`, metadata-only `audit-log.jsonl`, and `summary.md`.
 - P3 `eval-judge-scenario` writes a deterministic report bundle with `eval-report.json`, `judge-report.json`, `reproducibility-report.json`, `release-gate.json`, `audit-summary.json`, and `summary.md`.
+- `pyproject.toml` defines installable package metadata for version `0.1.0a0`, Apache-2.0 license metadata, Python `>=3.11`, classifiers, project URLs, optional backend extras, and public CLI scripts.
 - `--commit` safety boundary is documented and exits 2 when Tier 1 has no real backend.
 - Test suite baseline: `python -m pytest -q` exited 0.
 - Collect-only baseline after P2: 136 tests collected.
@@ -184,3 +185,26 @@ Evidence:
 - `python -m pytest --collect-only -q`: 152 tests collected.
 
 Remaining P4 work: none for the approved release-candidate tag.
+
+## P4 Release-Prep Slice 5
+
+Status: installable public package gate added and ready with documented limitations.
+
+Evidence:
+- `pyproject.toml` defines `phantom-training` version `0.1.0a0`, Apache-2.0 license metadata, Python `>=3.11`, classifiers, project URLs, dev/optional backend extras, package discovery, and console scripts.
+- `.github/workflows/ci.yml` now runs editable install, install dry-run, wheel build, ruff, deterministic demo/lifecycle/eval-judge smokes, full `python -m pytest -q`, and release-prep gate.
+- `tests/test_packaging.py` verifies package metadata, version, public scripts, and importable entrypoints.
+- Current verification on 2026-06-27 is recorded in `docs/FINAL_RELEASE_AUDIT.md`.
+- `python -m pytest tests/test_packaging.py tests/test_release_prep_contract.py tests/test_open_source_contract.py -q`: passed.
+- `python -m pytest -q`: passed.
+- `python -m pytest --collect-only -q`: 155 tests collected.
+- `python -m pip install -e . --dry-run --no-deps`: would install `phantom-training-0.1.0a0`.
+- `python -m pip wheel . --no-deps -w <temp>`: built `phantom_training-0.1.0a0-py3-none-any.whl`.
+- `python -m ruff check phantom_training tests`: all checks passed.
+- `python -m pip install -e . --no-deps`: installed `phantom-training-0.1.0a0`.
+- Installed console script help for `phantom-training-demo-loop`, `phantom-training-backend-lifecycle`, and `phantom-training-eval-judge-scenario`: OK.
+- Deterministic demo/lifecycle/eval-judge smoke wrote manifests with `synthetic_only=true`, `real_training=false`, `model_artifacts_written=false`, `external_network=false`, `gpu_required=false`, and `publish_enabled=false`.
+- High-confidence secret scan: `high_conf_secret_hits=0`.
+- Root integration after this project: usage smoke 10/10, agent compatibility 40/40, root pytest 85 passed.
+
+Remaining P4 work: none for the installable public release-candidate gate; real training backends, GPU use, model artifacts, and benchmark publishing still require separate dependency/license, private-data, and model-artifact review.
