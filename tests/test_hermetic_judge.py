@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from phantom_training.hermetic_judge import judge_task
+import subprocess
+
+import pytest
+
+from phantom_training.hermetic_judge import _parse_runner_result, judge_task
 
 
 CODE_TESTS = (
@@ -72,3 +76,44 @@ def test_code_candidate_timeout_scores_zero():
     assert result["kind"] == "code"
     assert result["score"] == 0.0
     assert result["accepted"] is False
+
+
+def test_judge_task_raises_without_tests_or_reference():
+    with pytest.raises(ValueError):
+        judge_task({"candidate": "anything"})
+
+
+def _completed(stdout: str, returncode: int = 0) -> subprocess.CompletedProcess:
+    return subprocess.CompletedProcess(args=["_runner.py"], returncode=returncode, stdout=stdout, stderr="")
+
+
+def test_parse_runner_result_nonzero_returncode_scores_zero():
+    assert _parse_runner_result(_completed('{"passed": 2, "total": 2}', returncode=1)) == (0, 0)
+
+
+def test_parse_runner_result_invalid_json_scores_zero():
+    assert _parse_runner_result(_completed("not json")) == (0, 0)
+
+
+def test_parse_runner_result_missing_key_scores_zero():
+    assert _parse_runner_result(_completed('{"passed": 2}')) == (0, 0)
+
+
+def test_parse_runner_result_non_numeric_value_scores_zero():
+    assert _parse_runner_result(_completed('{"passed": "x", "total": 2}')) == (0, 0)
+
+
+def test_parse_runner_result_zero_total_scores_zero():
+    assert _parse_runner_result(_completed('{"passed": 0, "total": 0}')) == (0, 0)
+
+
+def test_parse_runner_result_negative_passed_scores_zero():
+    assert _parse_runner_result(_completed('{"passed": -1, "total": 2}')) == (0, 0)
+
+
+def test_parse_runner_result_passed_exceeds_total_scores_zero():
+    assert _parse_runner_result(_completed('{"passed": 5, "total": 2}')) == (0, 0)
+
+
+def test_parse_runner_result_valid_payload_passes_through():
+    assert _parse_runner_result(_completed('{"passed": 2, "total": 3}')) == (2, 3)
