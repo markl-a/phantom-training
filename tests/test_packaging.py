@@ -61,7 +61,10 @@ def test_pyproject_metadata_matches_public_release_gate():
     assert project["version"] == "0.1.0a0"
     assert project["license"] == "Apache-2.0"
     assert project["requires-python"] == ">=3.11"
-    assert project["dependencies"] == []
+    # The MCP transport shim is a core dependency so `pip install -e .` yields a
+    # mesh-wireable `phantom_training.mcp_server` with no extras. Heavy training
+    # backends stay opt-in under optional-dependencies.
+    assert project["dependencies"] == ["mcp>=1"]
     assert "Topic :: Scientific/Engineering :: Artificial Intelligence" in project["classifiers"]
     assert "Repository" in project["urls"]
     assert "Documentation" in project["urls"]

@@ -37,10 +37,10 @@ python -m phantom_training.cli eval --dataset $ds --json
 python -m phantom_training.cli judge --tasks $tasks --json
 ```
 
-同一個 eval floor 也能以 **MCP server** 形式掛進 phantom mesh,供 mesh 上的 agent 直接呼叫 `training_eval` 工具:
+同一個 eval floor 也能以 **MCP server** 形式掛進 phantom mesh,供 mesh 上的 agent 直接呼叫 `training_eval` 工具。MCP transport 是 Tier 1 核心相依,`pip install -e .` 預設就會裝好,無需額外 extra:
 
 ```powershell
-python -m pip install -e .[mcp]
+python -m pip install -e .
 phantom-training-mcp   # stdio MCP server,對外暴露 `training_eval`(held-out EM + token-F1)
 ```
 

@@ -23,9 +23,13 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
-# Declared but NOT installed in Tier 1 — these are the Tier 2/3 backends.
-# Tier 1 only needs stdlib + tomllib (3.11+) for the CLI stub.
-dependencies = []
+# Tier 1 is stdlib-only (+ tomllib on 3.11+) for the CLI, plus the thin MCP
+# transport shim so `phantom_training.mcp_server` imports from a default install
+# and its `training_eval` tool can be wired straight into the phantom mesh.
+# The heavyweight Tier 2/3 training backends stay opt-in below.
+dependencies = [
+    "mcp>=1",
+]
 
 [project.optional-dependencies]
 # Real training backends — install on demand in Tier 2+.
@@ -46,10 +50,6 @@ axolotl = [
 dev = [
     "pytest>=8.0",
     "ruff>=0.6",
-]
-# Thin MCP wrapper over the existing eval capability (see phantom_training/mcp_server.py).
-mcp = [
-    "mcp>=1",
 ]
 
 [project.scripts]
