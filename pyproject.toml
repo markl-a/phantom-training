@@ -28,7 +28,7 @@ classifiers = [
 # and its `training_eval` tool can be wired straight into the phantom mesh.
 # The heavyweight Tier 2/3 training backends stay opt-in below.
 dependencies = [
-    "mcp>=1",
+    "mcp>=1,<2",
 ]
 
 [project.optional-dependencies]
